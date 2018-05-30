@@ -134,6 +134,17 @@ def lnprior(theta, initvals, usepsr):
     dec_limits = [refpos.dec.to(u.rad).value - ddec_mas*u.mas/u.rad, \
                   refpos.dec.to(u.rad).value + ddec_mas*u.mas/u.rad]
 
+    # If we're outside the limits, immediately return np.inf
+    if not(ra_limits[0] < ra < ra_limits[1] and \
+        dec_limits[0] < dec < dec_limits[1] and \
+        pmra_limits[0] < pmra < pmra_limits[1] and \
+        pmdec_limits[0] < pmdec < pmdec_limits[1] and \
+        px_limits[0] < px < px_limits[1] and \
+        Omega_limits[0] < Omega < Omega_limits[1] and \
+        (inc_limits[0] < inc < inc_limits[1] or \
+        otherinc_limits[0] < inc < otherinc_limits[1])):
+        return np.inf
+
     # If the inits file says so, apply a uniform prior on cos i
     try:
         incprior = initvals['incprior']
@@ -154,17 +165,10 @@ def lnprior(theta, initvals, usepsr):
         pmxdot = 1.54e-16*x*(pmdec*np.cos(Omega*np.pi/180.0) - pmra*np.sin(Omega*np.pi/180.0))/np.tan(inc*np.pi/180.0)
         err_sigma = np.fabs(pmxdot - xdot)/xdot_sigma
         lnp += -0.5*(np.log(2*np.pi) + err_sigma*err_sigma)
+    except KeyError:
+        pass
 
-    if ra_limits[0] < ra < ra_limits[1] and \
-        dec_limits[0] < dec < dec_limits[1] and \
-        pmra_limits[0] < pmra < pmra_limits[1] and \
-        pmdec_limits[0] < pmdec < pmdec_limits[1] and \
-        px_limits[0] < px < px_limits[1] and \
-        Omega_limits[0] < Omega < Omega_limits[1] and \
-        (inc_limits[0] < inc < inc_limits[1] or \
-        otherinc_limits[0] < inc < otherinc_limits[1]):
-        return lnp
-    return -np.inf
+    return lnp
 
 def lnprob(theta, baryMJDs, meas, errs, eposns, posepoch, usepsr=False, initvals=None):
     lp = lnprior(theta, initvals, usepsr)
