@@ -151,7 +151,7 @@ def lnprior(theta, initvals, usepsr):
     except KeyError:
         incprior = "uniformi"
     if incprior == "uniformcosi":
-        lnp += np.log(np.cos(inc*np.pi/180.0))
+        lnp += np.log(np.fabs(np.cos(inc*np.pi/180.0)))
     elif incprior != "uniformi":
         print "I don't know how to implement inclination prior", incprior
         sys.exit()
