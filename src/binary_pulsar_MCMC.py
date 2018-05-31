@@ -399,6 +399,14 @@ if __name__ == "__main__":
     fig = corner.corner(samples, labels=variables)
     fig.savefig(sourcename + "_triangle.png")
     plt.close()
+    transposed = samples.T
+    for i, x in enumerate(transposed):
+        n, b = np.histogram(x, bins=50, range=[x.min(), x.max()])
+        output = open(variables[i] + ".histogram.txt", "w")
+        binwidth = b[1] - b[0]
+        for na, ba in zip(n, b):
+            output.write("%.6f %.6g\n" % (ba+binwidth/2.0, na))
+        output.close()
     
     chains = chains_to_dict(variables, sampler)
     plot_chains(chains, file=sourcename + "_chains.png")
