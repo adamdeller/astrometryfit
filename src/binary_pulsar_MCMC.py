@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #  This file is part of the astrometricfit distribution 
 #  (https://github.com/adamdeller/astrometricfit/).
@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import novas.compat
 import novas.compat.solsys as solsys
 from novas.compat.eph_manager import ephem_open
-import binary_psr as bp
+from presto import binary_psr as bp
 import os, sys
 import yaml
 
@@ -276,7 +276,7 @@ if __name__ == "__main__":
     initsfile = sys.argv[3]
 
     # Import DE421 for NOVAS
-    ephem_open(os.path.join(os.getenv("TEMPO"), "ephem/DE421.1950.2050"))
+    ephem_open(os.path.join(os.getenv("TEMPO2"), "T2runtime/ephemeris/DE421.1950.2050"))
     
     # Read in the starting values for parameters and their allowed ranges
     initvals = yaml.load(open(initsfile))
