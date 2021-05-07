@@ -148,6 +148,7 @@ class binary_psr(object):
                 y = -I
                 z = -J
         """
+        inc = 180 - inc #change made by Hao to make the convention consistent with TEMPO2 (orbital momentum pointing from pulsar to earth when i=0)
         ma, ea, ta = self.calc_anoms(MJD)
         ws = self.calc_omega(MJD)
         orb_phs = ta + ws
@@ -157,6 +158,7 @@ class binary_psr(object):
         if returnz:
             return -r*Num.sin(orb_phs)*sini, -r*Num.cos(orb_phs), \
                 -r*Num.sin(orb_phs)*Num.cos(inc*DEGTORAD)
+
         else:
             return -r*Num.sin(orb_phs)*sini, -r*Num.cos(orb_phs)
 
@@ -170,7 +172,12 @@ class binary_psr(object):
                 most non-pulsar applications (in which Omega is measured counter-
                 clockwise from North to East). The distance to the pulsar is in 
                 kpc. The returned values are dRA (corrected by cos(dec)), dDEC.
+
+            Note by Hao: to be consistent with the astronomical convention (as well as the TEMPO2 framework), 
+            Omega is redefined as the longitude of asending node as an angle from north (Dec) to east (RA) (counter-clockwise 
+            as viewed from Earth observer.
         """
+        Omega = 90 - Omega #change made by Hao, see the above note by Hao
         xs, ys, zs = self.position(MJD, inc, returnz=True)
         ys = -ys / dist * 2.003988804115705e-03 # in mas, (i.e. DT92 "I")
         zs = -zs / dist * 2.003988804115705e-03 # in mas, (i.e. DT92 "J")
