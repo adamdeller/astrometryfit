@@ -30,6 +30,7 @@ from presto import binary_psr as bp
 import os, sys
 import yaml
 import pickle
+import copy
 
 def get_coords(infile="pulsar.pmpar.in"):
     posns = []
@@ -194,8 +195,8 @@ def lnprob(theta, baryMJDs, meas, errs, eposns, posepoch, usepsr=False, initvals
         return -np.inf
     return lp + lnlike(theta, baryMJDs, meas, errs, eposns, posepoch, usepsr)
 
-def chains_to_dict(names, sampler):
-    chains = [sampler.chain[:,:,ii].T for ii in range(len(names))]
+def sampler_chain_to_dict(names, sampler_chain):
+    chains = [sampler_chain[:,:,ii].T for ii in range(len(names))]
     return dict(zip(names,chains))
 
 def plot_chains(chain_dict, file=False):
@@ -267,15 +268,8 @@ def make_posn_plots(theta, MJDs, ras, decs, ra_errs, dec_errs, posepoch, psr, fi
     else:
         plt.show()
 
-if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print "Usage: %s <timing .par file> <VLBI pmpar.in file> <initial values + ranges file>" % sys.argv[0]
-        sys.exit()
 
-    parfile = sys.argv[1]
-    pmparfile = sys.argv[2]
-    initsfile = sys.argv[3]
-
+def main(parfile, pmparfile, initsfile):
     # Import DE421 for NOVAS
     ephem_open(os.path.join(os.getenv("TEMPO2"), "T2runtime/ephemeris/DE421.1950.2050"))
     
@@ -395,43 +389,52 @@ if __name__ == "__main__":
         if trybothinc and i % 2 == 0:
             pos[i][-1] = 180.0 - pos[i][-1] 
     
-    saved_samples = '.samples.dat'
-    if os.path.exists(saved_samples):
-        readfile = open(saved_samples, 'rb')
-        samples = pickle.load(readfile)
+    saved_sampler_chain = '.sampler_chain.dat'
+    if os.path.exists(saved_sampler_chain):
+        print('sampler.chain read from .sampler_chain.dat')
+        readfile = open(saved_sampler_chain, 'rb')
+        sampler_chain = pickle.load(readfile)
         readfile.close()
     else:
         print "About to run MCMC"
         sampler.run_mcmc(pos, 1500)
         print "Finished, getting samples"
-        samples = sampler.chain[:, 200:, :].reshape((-1, ndim))
-
-        # Put the inclination and Omega back in the range 0,180 and 0,360 respectively
-        print "Fixing Omega and inc if necessary"
-        for i in range(len(samples)):
-            orginc = samples[i][-1]
-            orgomega = samples[i][-2]
-            boundOmegaInc(samples[i])
-            if samples[i][-1] > 180 or samples[i][-1] < 0:
-                print "Inc was ", orginc, "is now", samples[i][-1]
-            if samples[i][-2] > 360 or samples[i][-2] < 0:
-                print "Omega was ", orgomega, "is now", samples[i][-2]
-        print "Done fixing"
-
-        writefile = open(saved_samples, 'wb')
-        pickle.dump(samples, writefile)
+        sampler_chain = sampler.chain
+        writefile = open(saved_sampler_chain, 'wb')
+        pickle.dump(sampler_chain, writefile)
         writefile.close()
-        print('samples saved to .sample.dat')
+        print('sampler.chain saved to .sampler_chain.dat')
+        
+    samples = sampler_chain[:, 200:, :].reshape((-1, ndim))
+
+    # Put the inclination and Omega back in the range 0,180 and 0,360 respectively
+    print "Fixing Omega and inc if necessary"
+    for i in range(len(samples)):
+        orginc = samples[i][-1]
+        orgomega = samples[i][-2]
+        boundOmegaInc(samples[i])
+        if samples[i][-1] > 180 or samples[i][-1] < 0:
+            print "Inc was ", orginc, "is now", samples[i][-1]
+        if samples[i][-2] > 360 or samples[i][-2] < 0:
+            print "Omega was ", orgomega, "is now", samples[i][-2]
+    print "Done fixing"
+
     
     
     
     import corner
     plt.rc('text', usetex=True)
-    #variables = [r"$\alpha$\,(rad)", r"$\delta$\,(rad)", r"$\mu_{\alpha}\,\mathrm{mas~{yr}^{-1}}$",\
-    #    r"$\mu_{\delta}\,\mathrm{mas~{yr}^{-1}}$", r"$\varpi$\,mas", r"$\Omega$\,(deg)", r"$i$\,(deg)"]
-    variables = ["RA", "DEC", "PMRA", "PMDEC", "PX", "Omega", "inclination"]
-    fig = corner.corner(samples, labels=variables)
-    fig.savefig(sourcename + "_triangle.png")
+    variables = ["RA", "DEC", "PMRA", "PMDEC", "PX", "Omega", "Inclination"]
+    cornerplot_samples = copy.deepcopy(samples)
+    median_RA_rad = np.median(cornerplot_samples[:,0])
+    median_DEC_rad = np.median(cornerplot_samples[:,1])
+    cornerplot_samples -= [median_RA_rad, median_DEC_rad, 0, 0, 0, 0, 0] #get offset (in rad) of RA/DEC from respective median value
+    cornerplot_samples[:, 0:2] *= 180/np.pi*3600*1000  #convert from rad to mas
+    cornerplot_samples[:, 0] *= np.cos(median_DEC_rad) 
+    cornerplot_variables = [r"$\Delta\alpha$\,(mas)", r"$\Delta\delta$\,(mas)", r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$",\
+        r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$", r"$\varpi$\,(mas)", r"$\Omega$\,(deg)", r"$i$\,(deg)"]
+    fig = corner.corner(cornerplot_samples, labels=cornerplot_variables, label_kwargs={"fontsize": 22})
+    fig.savefig(sourcename + "_triangle.pdf")
     plt.close()
     transposed = samples.T
     for i, x in enumerate(transposed):
@@ -442,7 +445,7 @@ if __name__ == "__main__":
             output.write("%.6f %.6g\n" % (ba+binwidth/2.0, na))
         output.close()
     
-    chains = chains_to_dict(variables, sampler)
+    chains = sampler_chain_to_dict(variables, sampler_chain)
     plot_chains(chains, file=sourcename + "_chains.png")
     
     # Print the best MCMC values and ranges
@@ -452,6 +455,7 @@ if __name__ == "__main__":
     for name, vals in zip(variables, ranges):
         print "%8s:"%name, "%25.15g (+ %12.5g  / - %12.5g)"%vals
     
+    sys.exit()
     # Make plots of the highest-likelihood sample
     besttheta = sampler.flatchain[sampler.flatlnprobability.argmax()]
     print "Best theta:", besttheta
@@ -461,3 +465,14 @@ if __name__ == "__main__":
         bestposn.dec.to_string(pad=True, sep='dms', unit='deg') 
     make_posn_plots(besttheta, baryMJDs, ras, decs, ra_errs, dec_errs, 
                     vlbiepoch, psr, sourcename+"_best")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print "Usage: %s <timing .par file> <VLBI pmpar.in file> <initial values + ranges file>" % sys.argv[0]
+        sys.exit()
+
+    parfile = sys.argv[1]
+    pmparfile = sys.argv[2]
+    initsfile = sys.argv[3]
+    main(parfile, pmparfile, initsfile)
