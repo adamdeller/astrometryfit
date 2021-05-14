@@ -29,6 +29,7 @@ from novas.compat.eph_manager import ephem_open
 from presto import binary_psr as bp
 import os, sys
 import yaml
+import pickle
 
 def get_coords(infile="pulsar.pmpar.in"):
     posns = []
@@ -393,26 +394,42 @@ if __name__ == "__main__":
             pos[i][-1] = inc + np.random.randn()*incsigma
         if trybothinc and i % 2 == 0:
             pos[i][-1] = 180.0 - pos[i][-1] 
-   
-    print "About to run MCMC"
-    sampler.run_mcmc(pos, 1500)
-    print "Finished, getting samples"
-    samples = sampler.chain[:, 200:, :].reshape((-1, ndim))
+    
+    saved_samples = '.samples.dat'
+    if os.path.exists(saved_samples):
+        readfile = open(saved_samples, 'rb')
+        samples = pickle.load(readfile)
+        readfile.close()
+    else:
+        print "About to run MCMC"
+        sampler.run_mcmc(pos, 1500)
+        print "Finished, getting samples"
+        samples = sampler.chain[:, 200:, :].reshape((-1, ndim))
 
-    # Put the inclination and Omega back in the range 0,180 and 0,360 respectively
-    print "Fixing Omega and inc if necessary"
-    for i in range(len(samples)):
-        orginc = samples[i][-1]
-        orgomega = samples[i][-2]
-        boundOmegaInc(samples[i])
-        if samples[i][-1] > 180 or samples[i][-1] < 0:
-            print "Inc was ", orginc, "is now", samples[i][-1]
-        if samples[i][-2] > 360 or samples[i][-2] < 0:
-            print "Omega was ", orgomega, "is now", samples[i][-2]
-    print "Done fixing"
+        # Put the inclination and Omega back in the range 0,180 and 0,360 respectively
+        print "Fixing Omega and inc if necessary"
+        for i in range(len(samples)):
+            orginc = samples[i][-1]
+            orgomega = samples[i][-2]
+            boundOmegaInc(samples[i])
+            if samples[i][-1] > 180 or samples[i][-1] < 0:
+                print "Inc was ", orginc, "is now", samples[i][-1]
+            if samples[i][-2] > 360 or samples[i][-2] < 0:
+                print "Omega was ", orgomega, "is now", samples[i][-2]
+        print "Done fixing"
+
+        writefile = open(saved_samples, 'wb')
+        pickle.dump(samples, writefile)
+        writefile.close()
+        print('samples saved to .sample.dat')
+    
+    
     
     import corner
-    variables = ["RA", "DEC", "PMRA", "PMDEC", "PX", "Omega", "Inclination"]
+    plt.rc('text', usetex=True)
+    #variables = [r"$\alpha$\,(rad)", r"$\delta$\,(rad)", r"$\mu_{\alpha}\,\mathrm{mas~{yr}^{-1}}$",\
+    #    r"$\mu_{\delta}\,\mathrm{mas~{yr}^{-1}}$", r"$\varpi$\,mas", r"$\Omega$\,(deg)", r"$i$\,(deg)"]
+    variables = ["RA", "DEC", "PMRA", "PMDEC", "PX", "Omega", "inclination"]
     fig = corner.corner(samples, labels=variables)
     fig.savefig(sourcename + "_triangle.png")
     plt.close()
