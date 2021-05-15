@@ -434,6 +434,15 @@ def main(parfile, pmparfile, initsfile):
     cornerplot_variables = [r"$\Delta\alpha$\,(mas)", r"$\Delta\delta$\,(mas)", r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$",\
         r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$", r"$\varpi$\,(mas)", r"$\Omega$\,(deg)", r"$i$\,(deg)"]
     fig = corner.corner(cornerplot_samples, labels=cornerplot_variables, label_kwargs={"fontsize": 22})
+    fig.tight_layout()
+    #fig.subplots_adjust(right=1.5, top=1.5)
+    #return fig.get_axes()
+    #sys.exit()
+    for ax in fig.get_axes():
+        ax.tick_params(axis='both', labelsize=14, pad=0)
+        #ax.xaxis.labelpad = 100
+        
+    #fig.savefig(sourcename + "_triangle.pdf", dpi=300, pad_inches=0.3, bbox_inches='tight')
     fig.savefig(sourcename + "_triangle.pdf")
     plt.close()
     transposed = samples.T
